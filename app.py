@@ -10,6 +10,7 @@ Original file is located at
 import streamlit as st
 import numpy as np
 import joblib
+import librosa
 
 # Load the trained model, scaler, and label encoder
 MODEL_PATH = 'classifier_model.pkl'
@@ -22,9 +23,10 @@ label_encoder = joblib.load(LABEL_ENCODER_PATH)
 
 # Streamlit App Interface
 st.title("Music Genre Classifier")
-st.write("Enter the following feature values to predict the genre:")
+st.write("Choose a method to predict genre:")
 
-# Create input fields for each feature (8 in this case)
+# Option 1: Manual Feature Input
+st.subheader("Manual Feature Input")
 tempo = st.number_input("Tempo (BPM):", min_value=0.0, step=0.1)
 beats = st.number_input("Beats:", min_value=0.0, step=1.0)  # Assuming beats is a numerical feature
 chroma_stft = st.number_input("Chroma STFT:", min_value=0.0, step=0.01)
@@ -34,18 +36,38 @@ spectral_bandwidth = st.number_input("Spectral Bandwidth (Hz):", min_value=0.0, 
 rolloff = st.number_input("Rolloff Frequency (Hz):", min_value=0.0, step=1.0)
 zero_crossing_rate = st.number_input("Zero-Crossing Rate:", min_value=0.0, step=0.01)
 
-# Button to trigger genre prediction
-if st.button("Predict Genre"):
-    # Create a list of input features
+# Option 2: Upload MP3 File
+uploaded_file = st.file_uploader("Upload MP3 File:")
+
+# Logic based on selected method
+if uploaded_file is not None:
+    # Extract features from the uploaded MP3 file using librosa
+    audio, sr = librosa.load(uploaded_file, sr=None)
+
+    tempo, _ = librosa.beat.beat_track(y=audio, sr=sr)
+    chroma_stft = np.mean(librosa.feature.chroma_stft(y=audio, sr=sr))
+    rmse = np.mean(librosa.feature.rms(y=audio))
+    spectral_centroid = np.mean(librosa.feature.spectral_centroid(y=audio, sr=sr))
+    spectral_bandwidth = np.mean(librosa.feature.spectral_bandwidth(y=audio, sr=sr))
+    rolloff = np.mean(librosa.feature.spectral_rolloff(y=audio, sr=sr))
+    zero_crossing_rate = np.mean(librosa.feature.zero_crossing_rate(y=audio))
+
+    features = [tempo, chroma_stft, rmse, spectral_centroid, spectral_bandwidth, rolloff, zero_crossing_rate]
+    features_input = np.array(features).reshape(1, -1)
+
+elif tempo and beats and chroma_stft and rmse and spectral_centroid and spectral_bandwidth and rolloff and zero_crossing_rate:
+    # User entered all features manually
     features = [tempo, beats, chroma_stft, rmse, spectral_centroid, spectral_bandwidth, rolloff, zero_crossing_rate]
     features_input = np.array(features).reshape(1, -1)
 
-    # Scale the features
-    scaled_features = scaler.transform(features_input)
+else:
+    st.warning("Please choose a method: Upload an MP3 file or enter features manually.")
+    st.stop()  # Stop execution if no method is chosen
 
-    # Make prediction
-    predicted_genre_encoded = model.predict(scaled_features)[0]
-    predicted_genre = label_encoder.inverse_transform([predicted_genre_encoded])[0]
+# Feature scaling and prediction (same as before)
+scaled_features = scaler.transform(features_input)
+predicted_genre_encoded = model.predict(scaled_features)[0]
+predicted_genre = label_encoder.inverse_transform([predicted_genre_encoded])[0]
 
-    # Display result
-    st.success(f"Predicted Genre: **{predicted_genre}**")
+# Display result
+st.success(f"Predicted Genre: **{predicted_genre}**")
