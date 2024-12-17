@@ -44,8 +44,9 @@ if uploaded_file is not None:
     # Extract features from the uploaded MP3 file using librosa
     audio, sr = librosa.load(uploaded_file, sr=None)
 
+    # Extract features, ensuring consistent shapes
     tempo, _ = librosa.beat.beat_track(y=audio, sr=sr)
-    chroma_stft = np.mean(librosa.feature.chroma_stft(y=audio, sr=sr))
+    chroma_stft = np.mean(librosa.feature.chroma_stft(y=audio, sr=sr), axis=1)
     rmse = np.mean(librosa.feature.rms(y=audio))
     spectral_centroid = np.mean(librosa.feature.spectral_centroid(y=audio, sr=sr))
     spectral_bandwidth = np.mean(librosa.feature.spectral_bandwidth(y=audio, sr=sr))
